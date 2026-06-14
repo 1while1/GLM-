@@ -1,54 +1,174 @@
-﻿# GLM Coding Plan Grabber
+﻿# GLM Coding Plan 抢购助手
 
-Single-target GLM Coding Plan purchase assistant.
+这是一个面向 GLM Coding Plan 页面的一键启动抢购助手。程序会打开持久化 Chromium 浏览器，注入页面内脚本，监控指定套餐和周期，并在开抢窗口内尝试定位、解灰和点击订阅按钮。检测到支付页、最终确认页、登录或验证码时，程序会停在人工接管边界，不会自动支付或绕过验证码。
 
-This tool opens a persistent Chromium session, injects a page-local observer, watches one configured plan and billing period, and stops before payment or final confirmation.
+## 功能概览
 
-## Safety Boundary
+- 可视化 GUI 配置套餐、周期、开抢时间和点击策略。
+- 支持 `Lite`、`Pro`、`Max` 三种套餐。
+- 支持 `连续包月`、`连续包季`、`连续包年` 三种周期。
+- 支持多页面并行抢购。
+- 支持服务器时间校准，减少本机时间误差影响。
+- 支持手动按钮 CSS selector，并在页面中高亮匹配按钮。
+- 支持强制解灰点击，移除前端 disabled / aria-disabled / 灰色样式阻挡。
+- 支持拥挤提示重试：遇到“抢购人数过多，请刷新再试”等文案时，先连续点击，再按策略刷新。
+- 支持到点强制刷新一次。
+- 支持日志记录和支付接管截图。
 
-- It does not bypass captcha.
-- It does not auto-pay.
-- It does not rotate through multiple plans.
-- It does not replay captured purchase requests in v1.
-- It pauses on login, captcha, target mismatch, and unknown states.
-- It uses an in-flight lock to avoid repeated purchase attempts.
+## 安全边界
 
-## One-Click Launch
+本工具不会做以下事情：
 
-Double-click:
+- 不绕过验证码。
+- 不自动支付。
+- 不绕过实名认证、购买资格、库存或服务器风控。
+- 不伪造后端下单请求。
+- 不自动确认最终支付。
+- 不在源码中保存账号密码。
+
+首次运行时，需要在浏览器里手动登录自己的账号，并手动处理验证码、短信验证和支付。
+
+## 一键启动
+
+双击项目根目录下的：
 
 ```text
 一键启动.bat
 ```
 
-The launcher creates the virtual environment, installs dependencies, installs the project-local Chromium browser, and opens the visual GUI.
+启动脚本会自动创建虚拟环境、安装依赖、安装项目本地 Playwright Chromium，并打开 GUI。
 
-## Visual Launcher
+## GUI 使用方法
 
-In the GUI:
+在 GUI 中按顺序配置：
 
-1. Select plan: `Lite`, `Pro`, or `Max`.
-2. Select period: `连续包月`, `连续包季`, or `连续包年`.
-3. Set start time, for example `09:59:58`.
-4. Optionally set `手动按钮 CSS` if automatic target detection misses the subscription button. The matched button will be highlighted in the browser.
-5. Adjust `开抢窗口与点击策略` if needed:
-   - `提前开始秒数`: start clicking this many seconds before `开抢时间`.
-   - `持续秒数`: keep the armed click window open after `开抢时间`.
-   - `点击间隔 ms`: delay between click attempts.
-   - `最大点击次数`: `0` means unlimited.
-   - `拥挤先点次数`: click crowded retry buttons this many times before refreshing.
-   - `刷新间隔 ms`: minimum delay between recovery refreshes.
-   - `服务器时间校准`: read the target page's HTTP `Date` header and use the calculated offset for the start window.
-   - `校准采样数`: number of server-time samples; the lowest-latency sample is used.
-   - `到点强制刷新一次`: request one page refresh at `开抢时间` before clicking.
-6. Keep `强制解灰点击` enabled for the high-demand sale window.
-7. For manual testing before the official time, enable `立即测试（忽略开抢时间）`.
-8. Click `保存配置`.
-9. Click `启动抢购`.
+1. 选择套餐：`Lite`、`Pro` 或 `Max`。
+2. 选择周期：`连续包月`、`连续包季` 或 `连续包年`。
+3. 填写开抢时间，例如 `09:59:58`。
+4. 设置并行页面数，例如 `4`。
+5. 如果自动识别按钮不稳定，可以填写 `手动按钮 CSS`。
+6. 保持 `强制解灰点击` 开启。
+7. 根据需要调整 `开抢窗口与点击策略`。
+8. 点击 `保存配置`。
+9. 点击 `启动抢购`。
 
-The GUI shows runner output, can stop the process, and can open logs or screenshots.
+如果只是测试页面识别效果，可以勾选 `立即测试（忽略开抢时间）`。正式抢购前记得取消该选项。
 
-## Manual Setup
+## 手动按钮 CSS
+
+`手动按钮 CSS` 用于指定订阅按钮本身。它必须是浏览器标准 CSS selector，不是 XPath，也不是 Playwright selector。
+
+如果页面结构类似当前 GLM Coding Plan 页面，可以使用：
+
+```css
+.glm-coding-package-list > div:nth-child(2) .package-card-btn-box > button
+```
+
+如果 selector 匹配成功，按钮会在浏览器中出现红色描边。程序会在匹配结果中优先选择目标套餐卡片里的按钮，避免误点其他套餐。
+
+留空时，程序会使用自动识别逻辑。
+
+## 开抢窗口与点击策略
+
+GUI 中的策略项含义如下：
+
+- `提前开始秒数`：比开抢时间提前多少秒进入点击窗口，例如 `2` 表示提前 2 秒。
+- `持续秒数`：开抢时间之后继续抢多久，例如 `120` 表示继续 120 秒。
+- `点击间隔 ms`：点击冷却时间，例如 `20` 表示最短 20ms 尝试一次。
+- `最大点击次数`：总点击上限，`0` 表示不限制。
+- `拥挤先点次数`：遇到拥挤提示时，先连续点击多少次再刷新。
+- `刷新间隔 ms`：拥挤恢复刷新之间的最短间隔。
+- `服务器时间校准`：启动时读取目标页面 HTTP `Date` 头，计算服务器时间偏移。
+- `校准采样数`：服务器时间采样次数，程序会使用延迟最低的样本。
+- `到点强制刷新一次`：到达开抢时间时先刷新一次页面，再继续点击。
+
+## 当前推荐配置
+
+当前 `config.yaml` 中的实战配置大致如下：
+
+```yaml
+target:
+  plan: Pro
+  period: month
+  button_selector: null
+
+timing:
+  start_at: 09:59:58
+  armed_before_seconds: 2
+  armed_after_seconds: 120
+  click_cooldown_ms: 20
+  max_click_attempts: 0
+  crowd_retry_clicks_before_reload: 100
+  recovery_reload_interval_ms: 1500
+  server_time_sync: true
+  server_time_samples: 5
+  t0_reload: false
+
+browser:
+  parallel_pages: 4
+```
+
+含义是：抢 `Pro / 连续包月`，从 `09:59:58` 附近进入开抢窗口，提前 2 秒开始，20ms 高频点击，不限制总点击次数，遇到拥挤提示先点 100 次再刷新，4 个页面并行。
+
+## 工作机制
+
+程序由两部分组成：
+
+1. `runner.py`：负责打开持久化浏览器、注入配置、管理多页面、执行刷新、记录日志、处理支付接管。
+2. `injector.user.js`：运行在网页内部，负责识别套餐卡片、选择周期、定位按钮、强制解灰、连续点击和上报页面状态。
+
+点击动作主要在页面内部完成，不依赖外部 Playwright 每次点击，因此响应更快。
+
+## 拥挤提示处理
+
+当页面出现以下类似提示时：
+
+```text
+抢购人数过多，请刷新再试
+系统繁忙
+请刷新
+稍后再试
+```
+
+程序会将该按钮视为目标按钮，先继续解灰并点击。达到 `拥挤先点次数` 后，才通知 runner 刷新页面并重新注入脚本。
+
+## 服务器时间校准
+
+开启 `server_time_sync` 后，程序会在启动时请求目标页面，读取 HTTP 响应头中的 `Date` 时间，计算服务器时间和本机时间的偏移，并把偏移注入页面脚本。
+
+如果采样失败，程序会自动使用本机时间，不会中断运行。
+
+## 支付和验证码
+
+遇到以下情况时，需要人工处理：
+
+- 登录页。
+- 验证码或滑块验证。
+- 支付页。
+- 二维码支付。
+- 收银台或最终确认页。
+
+程序检测到支付或最终确认页面后，会停止自动点击，并根据配置保存截图。
+
+## 日志和截图
+
+运行日志：
+
+```text
+logs/events.jsonl
+```
+
+支付接管截图：
+
+```text
+screenshots/
+```
+
+这些目录已在 `.gitignore` 中忽略，不会提交到 GitHub。
+
+## 手动运行
+
+如果不使用一键启动，可以手动执行：
 
 ```powershell
 python -m venv .venv
@@ -56,72 +176,20 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 $env:PLAYWRIGHT_BROWSERS_PATH = ".\.ms-playwright"
 python -m playwright install chromium
-```
-
-## Manual Run
-
-```powershell
 $env:PYTHONPATH = ".\src"
-$env:PLAYWRIGHT_BROWSERS_PATH = ".\.ms-playwright"
 python runner.py --config config.yaml
 ```
 
-## Configure
+## 给朋友使用
 
-The GUI writes `config.yaml` for you. You can also edit it manually:
+把仓库克隆到本地后，朋友可以直接双击：
 
-```yaml
-target:
-  plan: Pro
-  period: quarter
-  button_selector: null
-timing:
-  click_cooldown_ms: 80
-  max_click_attempts: 0
-  crowd_retry_clicks_before_reload: 15
-  recovery_reload_interval_ms: 1500
-  server_time_sync: true
-  server_time_samples: 5
-  t0_reload: false
+```text
+一键启动.bat
 ```
 
-Allowed plans: `Lite`, `Pro`, `Max`.
+第一次启动后，需要在打开的浏览器里登录自己的账号。浏览器登录态会保存在本地 `.browser-profile` 目录中。
 
-Allowed periods:
+## 注意事项
 
-- `month`: 连续包月
-- `quarter`: 连续包季
-- `year`: 连续包年
-
-Do not put your password in source files. Use the persistent browser profile and log in manually on first run.
-
-## Runtime Notes
-
-On first run:
-
-1. Browser opens.
-2. Log in manually if needed.
-3. Complete captcha manually if shown.
-4. Leave the browser open.
-5. The script monitors the configured target.
-
-`timing.start_at` does not delay opening the page. The page opens immediately so login, captcha, and frontend resources can be ready early. The injected script only performs controlled target clicks inside the configured armed window.
-
-When the page shows a crowded retry message such as `抢购人数过多，请刷新再试`, the script now treats that message as the target button: it unlocks/clicks it repeatedly first, then asks the runner to refresh after `timing.crowd_retry_clicks_before_reload` attempts.
-
-When `timing.server_time_sync` is enabled, the runner samples the target page's HTTP `Date` header before opening parallel pages and injects `server_time_offset_ms` into the page script. If sampling fails, it falls back to local time.
-
-When `timing.t0_reload` is enabled, the page script requests one refresh at `timing.start_at`, then waits briefly for the runner to reload and re-inject the script before click attempts resume.
-
-When payment or final confirmation is detected, the script beeps, saves a screenshot, writes logs, and stops clicking. You must take over manually.
-
-## Logs
-
-- `logs/events.jsonl`: structured redacted event log
-- `screenshots/`: handoff screenshots
-
-Sensitive keys such as password, token, cookie, authorization, phone, and account are redacted.
-
-## Notes
-
-This tool can reduce the delay between page state changes and a controlled click. It cannot create stock, bypass account eligibility, bypass captcha, bypass server-side limits, or bypass payment.
+本工具只能减少前端识别、解灰、点击和刷新之间的延迟，不能保证一定抢到。最终结果仍取决于服务器库存、账号资格、风控、验证码和支付流程。
