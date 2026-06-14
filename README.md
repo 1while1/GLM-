@@ -1,4 +1,4 @@
-# GLM Coding Plan Grabber
+﻿# GLM Coding Plan Grabber
 
 Single-target GLM Coding Plan purchase assistant.
 
