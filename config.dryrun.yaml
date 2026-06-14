@@ -1,0 +1,41 @@
+target:
+  plan: Pro
+  period: quarter
+  expected_price_text: ""
+  button_selector:
+
+page:
+  url: "https://www.bigmodel.cn/glm-coding?ic=XOJGYOGNLN"
+
+timing:
+  start_at:
+  normal_check_interval_ms: 200
+  armed_check_interval_ms: 20
+  armed_before_seconds: 0
+  armed_after_seconds: 120
+  click_cooldown_ms: 80
+  max_click_attempts: 0
+  crowd_retry_clicks_before_reload: 15
+  recovery_reload_interval_ms: 1500
+  server_time_sync: true
+  server_time_samples: 5
+  t0_reload: false
+
+safety:
+  stop_before_payment: true
+  auto_continue_notice: true
+  force_unlock: false
+  replay_requests: false
+  screenshot_on_handoff: true
+  beep_on_handoff: true
+  pause_on_unknown: true
+
+browser:
+  user_data_dir: ".browser-profile-dryrun"
+  headless: false
+  slow_mo_ms: 0
+  parallel_pages: 3
+
+logging:
+  dir: "logs"
+  screenshots_dir: "screenshots"

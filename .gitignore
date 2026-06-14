@@ -1,0 +1,11 @@
+.browser-profile*/
+.ms-playwright/
+.playwright-mcp/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+logs/
+screenshots/
+.env
+*.log

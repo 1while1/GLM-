@@ -1,0 +1,37 @@
+target:
+  plan: Pro
+  period: month
+  expected_price_text: ''
+  button_selector: .glm-coding-package-list > div:nth-child(2) .package-card-btn-box
+    > button
+page:
+  url: https://www.bigmodel.cn/glm-coding?ic=XOJGYOGNLN
+timing:
+  start_at: 09:59:58
+  normal_check_interval_ms: 200
+  armed_check_interval_ms: 20
+  armed_before_seconds: 2
+  armed_after_seconds: 120
+  click_cooldown_ms: 20
+  max_click_attempts: 0
+  crowd_retry_clicks_before_reload: 100
+  recovery_reload_interval_ms: 1500
+  server_time_sync: true
+  server_time_samples: 5
+  t0_reload: true
+safety:
+  stop_before_payment: true
+  auto_continue_notice: true
+  force_unlock: true
+  replay_requests: false
+  screenshot_on_handoff: true
+  beep_on_handoff: true
+  pause_on_unknown: true
+browser:
+  user_data_dir: .browser-profile
+  headless: false
+  slow_mo_ms: 0
+  parallel_pages: 4
+logging:
+  dir: logs
+  screenshots_dir: screenshots
